@@ -1,6 +1,6 @@
 {
   "name": "nestjs-google-pubsub-cqrs",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Google Pub/Sub integration for NestJS CQRS event bus",
   "keywords": [
     "nestjs",

@@ -24,7 +24,7 @@ import { BaseEvent, PubSubEvent } from './typings';
 
 
 /**
- * Configuration options for the UnovPubSubCqrsModule.
+ * Configuration options for the PubSubCqrsModule.
  * This interface defines the required parameters for connecting to Google Pub/Sub.
  */
 interface DiPubSubModuleOptions {
@@ -50,7 +50,7 @@ interface DiPubSubModuleOptions {
  * ```typescript
  * @Module({
  *   imports: [
- *     UnovPubSubCqrsModule.forRoot({
+ *     PubSubCqrsModule.forRoot({
  *       subscriptionName: 'my-service-subscription',
  *       topicName: 'my-events-topic',
  *       projectId: 'my-gcp-project'
@@ -73,7 +73,7 @@ interface DiPubSubModuleOptions {
     PubSubService,
   ],
 })
-export class UnovPubSubCqrsModule
+export class PubSubCqrsModule
   extends CqrsModule<BaseEvent>
   implements OnApplicationBootstrap, OnModuleInit {
   protected eventBusChild: EventBus<BaseEvent>;
@@ -86,7 +86,7 @@ export class UnovPubSubCqrsModule
    */
   static override forRoot(options?: DiPubSubModuleOptions): DynamicModule {
     return {
-      module: UnovPubSubCqrsModule,
+      module: PubSubCqrsModule,
       providers: [
         {
           provide: 'OPTIONS',
@@ -107,7 +107,7 @@ export class UnovPubSubCqrsModule
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static forRootAsync(optionsProvider: any): DynamicModule {
     return {
-      module: UnovPubSubCqrsModule,
+      module: PubSubCqrsModule,
       imports: [],
       providers: [
         {

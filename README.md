@@ -31,20 +31,20 @@ npm install nestjs-google-pubsub-cqrs @google-cloud/pubsub
 
 ### 1. Basic Setup
 
-Replace your existing `CqrsModule` with `UnovPubSubCqrsModule`:
+Replace your existing `CqrsModule` with `PubSubCqrsModule`:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { UnovPubSubCqrsModule } from 'nestjs-google-pubsub-cqrs';
+import { Module } from "@nestjs/common";
+import { PubSubCqrsModule } from "nestjs-google-pubsub-cqrs";
 
 @Module({
   imports: [
-    UnovPubSubCqrsModule.forRoot({
-      subscriptionName: 'my-service-subscription',
-      topicName: 'my-events-topic',
-      projectId: 'my-gcp-project',
-      apiEndpoint: 'localhost', // Optional: for local development
-      port: 8085 // Optional: for local development
+    PubSubCqrsModule.forRoot({
+      subscriptionName: "my-service-subscription",
+      topicName: "my-events-topic",
+      projectId: "my-gcp-project",
+      apiEndpoint: "localhost", // Optional: for local development
+      port: 8085, // Optional: for local development
     }),
   ],
 })
@@ -56,7 +56,7 @@ export class AppModule {}
 Define your events using the provided `BaseEvent` interface:
 
 ```typescript
-import { BaseEvent } from 'nestjs-google-pubsub-cqrs';
+import { BaseEvent } from "nestjs-google-pubsub-cqrs";
 
 export interface UserCreatedPayload {
   userId: string;
@@ -74,9 +74,9 @@ export class UserCreatedEvent implements BaseEvent {
 Inject and use the `EventBus` to publish events:
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { EventBus } from '@nestjs/cqrs';
-import { UserCreatedEvent } from './events/user-created.event';
+import { Injectable } from "@nestjs/common";
+import { EventBus } from "@nestjs/cqrs";
+import { UserCreatedEvent } from "./events/user-created.event";
 
 @Injectable()
 export class UserService {
@@ -84,13 +84,15 @@ export class UserService {
 
   async createUser(userData: any) {
     // ... user creation logic
-    
+
     // Publish event to Google Pub/Sub
-    await this.eventBus.publish(new UserCreatedEvent({
-      userId: user.id,
-      email: user.email,
-      name: user.name
-    }));
+    await this.eventBus.publish(
+      new UserCreatedEvent({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+      })
+    );
   }
 }
 ```
@@ -100,13 +102,13 @@ export class UserService {
 Create event handlers using NestJS CQRS decorators:
 
 ```typescript
-import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
-import { UserCreatedEvent } from './events/user-created.event';
+import { EventsHandler, IEventHandler } from "@nestjs/cqrs";
+import { UserCreatedEvent } from "./events/user-created.event";
 
 @EventsHandler(UserCreatedEvent)
 export class UserCreatedHandler implements IEventHandler<UserCreatedEvent> {
   handle(event: UserCreatedEvent) {
-    console.log('User created:', event.payload);
+    console.log("User created:", event.payload);
     // Handle the event (send email, update analytics, etc.)
   }
 }
@@ -117,39 +119,39 @@ export class UserCreatedHandler implements IEventHandler<UserCreatedEvent> {
 ### Synchronous Configuration
 
 ```typescript
-UnovPubSubCqrsModule.forRoot({
-  subscriptionName: 'my-service-subscription',
-  topicName: 'my-events-topic',
-  projectId: 'my-gcp-project',
-  apiEndpoint: 'localhost', // Optional
-  port: 8085 // Optional
-})
+PubSubCqrsModule.forRoot({
+  subscriptionName: "my-service-subscription",
+  topicName: "my-events-topic",
+  projectId: "my-gcp-project",
+  apiEndpoint: "localhost", // Optional
+  port: 8085, // Optional
+});
 ```
 
 ### Asynchronous Configuration
 
 ```typescript
-UnovPubSubCqrsModule.forRootAsync({
+PubSubCqrsModule.forRootAsync({
   useFactory: async (configService: ConfigService) => ({
-    subscriptionName: configService.get('PUBSUB_SUBSCRIPTION'),
-    topicName: configService.get('PUBSUB_TOPIC'),
-    projectId: configService.get('GCP_PROJECT_ID'),
-    apiEndpoint: configService.get('PUBSUB_ENDPOINT'),
-    port: configService.get('PUBSUB_PORT'),
+    subscriptionName: configService.get("PUBSUB_SUBSCRIPTION"),
+    topicName: configService.get("PUBSUB_TOPIC"),
+    projectId: configService.get("GCP_PROJECT_ID"),
+    apiEndpoint: configService.get("PUBSUB_ENDPOINT"),
+    port: configService.get("PUBSUB_PORT"),
   }),
   inject: [ConfigService],
-})
+});
 ```
 
 ### Configuration Options
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `subscriptionName` | `string` | ✅ | Google Pub/Sub subscription name |
-| `topicName` | `string` | ✅ | Google Pub/Sub topic name |
-| `projectId` | `string` | ✅ | Google Cloud Project ID |
-| `apiEndpoint` | `string` | ❌ | Custom API endpoint (useful for local development) |
-| `port` | `number` | ❌ | Custom port (useful for local development) |
+| Option             | Type     | Required | Description                                        |
+| ------------------ | -------- | -------- | -------------------------------------------------- |
+| `subscriptionName` | `string` | ✅       | Google Pub/Sub subscription name                   |
+| `topicName`        | `string` | ✅       | Google Pub/Sub topic name                          |
+| `projectId`        | `string` | ✅       | Google Cloud Project ID                            |
+| `apiEndpoint`      | `string` | ❌       | Custom API endpoint (useful for local development) |
+| `port`             | `number` | ❌       | Custom port (useful for local development)         |
 
 ## 🏢 Microservices Architecture
 
@@ -163,14 +165,16 @@ export class UserService {
 
   async createUser(userData: CreateUserDto) {
     const user = await this.userRepository.save(userData);
-    
+
     // This event will be published to Google Pub/Sub
-    await this.eventBus.publish(new UserCreatedEvent({
-      userId: user.id,
-      email: user.email,
-      name: user.name
-    }));
-    
+    await this.eventBus.publish(
+      new UserCreatedEvent({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+      })
+    );
+
     return user;
   }
 }
@@ -181,7 +185,9 @@ export class UserService {
 ```typescript
 // notification.service.ts
 @EventsHandler(UserCreatedEvent)
-export class SendWelcomeEmailHandler implements IEventHandler<UserCreatedEvent> {
+export class SendWelcomeEmailHandler
+  implements IEventHandler<UserCreatedEvent>
+{
   constructor(private readonly emailService: EmailService) {}
 
   async handle(event: UserCreatedEvent) {
@@ -195,35 +201,11 @@ export class SendWelcomeEmailHandler implements IEventHandler<UserCreatedEvent> 
 
 ## 🔧 Local Development
 
-For local development, you can use the Google Cloud Pub/Sub emulator:
-
-### 1. Start the Emulator
-
-```bash
-gcloud beta emulators pubsub start --port=8085
-```
-
-### 2. Configure Your Application
-
-```typescript
-UnovPubSubCqrsModule.forRoot({
-  subscriptionName: 'local-subscription',
-  topicName: 'local-topic',
-  projectId: 'local-project',
-  apiEndpoint: 'localhost',
-  port: 8085
-})
-```
-
-### 3. Set Environment Variable
-
-```bash
-export PUBSUB_EMULATOR_HOST=localhost:8085
-```
+Local development workaround to be added soon.
 
 ## 📚 API Reference
 
-### UnovPubSubCqrsModule
+### PubSubCqrsModule
 
 The main module that replaces NestJS `CqrsModule`.
 
@@ -271,10 +253,13 @@ interface IConnectionOptions {
 ### Common Issues
 
 **1. Authentication Error**
+
 ```
 Error: Could not load the default credentials
 ```
+
 **Solution**: Configure Google Cloud authentication:
+
 ```bash
 gcloud auth application-default login
 # OR
@@ -282,10 +267,13 @@ export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
 ```
 
 **2. Topic/Subscription Not Found**
+
 ```
 Error: Topic was not found
 ```
+
 **Solution**: Create the topic and subscription in Google Cloud Console or using gcloud CLI:
+
 ```bash
 gcloud pubsub topics create my-events-topic
 gcloud pubsub subscriptions create my-service-subscription --topic=my-events-topic
@@ -299,7 +287,7 @@ gcloud pubsub subscriptions create my-service-subscription --topic=my-events-top
 Enable debug logging to troubleshoot connection issues:
 
 ```typescript
-import { Logger } from '@nestjs/common';
+import { Logger } from "@nestjs/common";
 
 // The module automatically logs connection status
 // Check your application logs for messages like:
