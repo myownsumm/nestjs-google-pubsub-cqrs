@@ -40,7 +40,6 @@
   "dependencies": {
     "@google-cloud/pubsub": "^4.0.2",
     "class-transformer": "^0.5.1",
-    "nestjs-google-pubsub-cqrs": "file:../nestjs-google-pubsub-cqrs",
     "rxjs": "^7.8.1"
   },
   "peerDependencies": {
