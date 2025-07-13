@@ -6,8 +6,7 @@ import {
   OnApplicationBootstrap,
   OnModuleInit,
   Type,
-} from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
+} from "@nestjs/common";
 import {
   CommandBus,
   CqrsModule,
@@ -15,14 +14,13 @@ import {
   EventPublisher,
   IEventHandler,
   QueryBus,
-} from '@nestjs/cqrs';
-import { ExplorerService } from '@nestjs/cqrs/dist/services/explorer.service';
-import { PubSubService } from './service';
-import { classToPlain, plainToClass } from 'class-transformer';
-import { EVENTS_HANDLER_METADATA } from '@nestjs/cqrs/dist/decorators/constants';
-import { filter, map, tap } from 'rxjs';
-import { BaseEvent, PubSubEvent } from './typings';
-
+} from "@nestjs/cqrs";
+import { ExplorerService } from "@nestjs/cqrs/dist/services/explorer.service";
+import { PubSubService } from "./service";
+import { classToPlain, plainToClass } from "class-transformer";
+import { EVENTS_HANDLER_METADATA } from "@nestjs/cqrs/dist/decorators/constants";
+import { filter, map, tap } from "rxjs";
+import { BaseEvent, PubSubEvent } from "./typings";
 
 /**
  * Configuration options for the PubSubCqrsModule.
@@ -41,12 +39,11 @@ interface DiPubSubModuleOptions {
   port: number;
 }
 
-
 /**
  * NestJS module that integrates Google Pub/Sub with NestJS CQRS.
  * This module replaces the default CqrsModule and provides event bus functionality
  * powered by Google Cloud Pub/Sub for distributed microservices communication.
- * 
+ *
  * @example
  * ```typescript
  * @Module({
@@ -63,8 +60,8 @@ interface DiPubSubModuleOptions {
  */
 @Global()
 @Module({
-  imports: [ CqrsModule ],
-  exports: [ CommandBus, QueryBus, EventBus, EventPublisher ],
+  imports: [CqrsModule],
+  exports: [CommandBus, QueryBus, EventBus, EventPublisher],
   providers: [
     CommandBus,
     QueryBus,
@@ -72,17 +69,17 @@ interface DiPubSubModuleOptions {
     ExplorerService,
     EventPublisher,
     PubSubService,
-    // ModuleRef removed
   ],
 })
 export class PubSubCqrsModule
   extends CqrsModule<BaseEvent>
-  implements OnApplicationBootstrap, OnModuleInit {
+  implements OnApplicationBootstrap, OnModuleInit
+{
   protected eventBusChild: EventBus<BaseEvent>;
 
   /**
    * Configures the module with static options.
-   * 
+   *
    * @param options - Configuration options for Google Pub/Sub connection
    * @returns DynamicModule configuration
    */
@@ -91,7 +88,7 @@ export class PubSubCqrsModule
       module: PubSubCqrsModule,
       providers: [
         {
-          provide: 'OPTIONS',
+          provide: "OPTIONS",
           useValue: options || {},
         },
       ],
@@ -101,7 +98,7 @@ export class PubSubCqrsModule
   /**
    * Configures the module with dynamic options using factories.
    * Useful for injecting configuration from ConfigService or other providers.
-   * 
+   *
    * @param optionsProvider - Provider configuration for dynamic options
    * @returns DynamicModule configuration
    */
@@ -113,7 +110,7 @@ export class PubSubCqrsModule
       imports: [],
       providers: [
         {
-          provide: 'OPTIONS',
+          provide: "OPTIONS",
           ...optionsProvider,
         },
       ],
@@ -128,7 +125,7 @@ export class PubSubCqrsModule
     queryBus: QueryBus,
     eventBus: EventBus<BaseEvent>,
     private readonly pubSubService: PubSubService,
-    @Inject('OPTIONS') private options: DiPubSubModuleOptions,
+    @Inject("OPTIONS") private options: DiPubSubModuleOptions
   ) {
     super(explorerService, eventBus, commandBus, queryBus);
     this.eventBusChild = eventBus;
@@ -149,12 +146,12 @@ export class PubSubCqrsModule
 
   private mapEventNamesToClasses(): void {
     // TODO. get service in a proper way
-    const { events } = this['explorerService'].explore();
+    const { events } = this["explorerService"].explore();
 
     events.forEach((handler: Type<IEventHandler>) => {
-      const [ constructor ] = Reflect.getMetadata(
+      const [constructor] = Reflect.getMetadata(
         EVENTS_HANDLER_METADATA,
-        handler,
+        handler
       );
       this.eventNamesToClasses.set(constructor.name, constructor);
     });
@@ -166,7 +163,9 @@ export class PubSubCqrsModule
       .pipe(
         // Do not listen to Messages dispatched by current MS itself, they were already handled
         // TODO. Could this be moved into PubSubService filtering mechanism?
-        filter((message) => message.eventInitiator !== this.options.subscriptionName),
+        filter(
+          (message) => message.eventInitiator !== this.options.subscriptionName
+        ),
         map((message) => {
           const classInstance = this.eventNamesToClasses.get(message.eventName);
 
@@ -174,7 +173,7 @@ export class PubSubCqrsModule
             // TODO. Specify types https://github.com/u-cat-org/u-novelist/issues/81
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             classInstance as any,
-            message.eventBody,
+            message.eventBody
           ) as BaseEvent;
 
           // Attach initiator data to Event class to filter in inside setOnLocalBusRead()
@@ -183,7 +182,7 @@ export class PubSubCqrsModule
           pubSubEvent._eventInitiator = message.eventInitiator;
 
           this.eventBusChild.publish(pubSubEvent);
-        }),
+        })
       )
       .subscribe();
   }
@@ -193,14 +192,18 @@ export class PubSubCqrsModule
       .pipe(
         // listen only to Events dispatched by the Models and Commands itself
         // Filter out events that have _eventInitiator (these came from Pub/Sub)
-        filter((event: BaseEvent | PubSubEvent) => !('_eventInitiator' in event) || !(event as PubSubEvent)._eventInitiator),
+        filter(
+          (event: BaseEvent | PubSubEvent) =>
+            !("_eventInitiator" in event) ||
+            !(event as PubSubEvent)._eventInitiator
+        ),
         tap((event: BaseEvent) => {
           this.pubSubService.write({
             eventBody: classToPlain(event),
             eventName: event.constructor.name,
             eventInitiator: this.options.subscriptionName,
           });
-        }),
+        })
       )
       .subscribe();
   }
