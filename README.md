@@ -17,7 +17,7 @@ A powerful Google Pub/Sub integration for NestJS CQRS that enables seamless even
 ## 📦 Installation
 
 ```bash
-npm install nestjs-google-pubsub-cqrs @google-cloud/pubsub
+npm install nestjs-google-pubsub-cqrs
 ```
 
 ## 🏗️ Prerequisites
