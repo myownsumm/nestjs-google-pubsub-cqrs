@@ -1,8 +1,8 @@
-import { DynamicModule, OnApplicationBootstrap, OnModuleInit } from '@nestjs/common';
-import { CommandBus, CqrsModule, EventBus, QueryBus } from '@nestjs/cqrs';
-import { ExplorerService } from '@nestjs/cqrs/dist/services/explorer.service';
-import { PubSubService } from './service';
-import { BaseEvent } from './typings';
+import { DynamicModule, OnApplicationBootstrap, OnModuleInit } from "@nestjs/common";
+import { CommandBus, CqrsModule, EventBus, QueryBus } from "@nestjs/cqrs";
+import { ExplorerService } from "@nestjs/cqrs/dist/services/explorer.service";
+import { PubSubService } from "./service";
+import { BaseEvent } from "./typings";
 /**
  * Configuration options for the PubSubCqrsModule.
  * This interface defines the required parameters for connecting to Google Pub/Sub.

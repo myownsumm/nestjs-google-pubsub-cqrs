@@ -63,11 +63,6 @@ interface DiPubSubModuleOptions {
   imports: [CqrsModule],
   exports: [CommandBus, QueryBus, EventBus, EventPublisher],
   providers: [
-    CommandBus,
-    QueryBus,
-    EventBus,
-    ExplorerService,
-    EventPublisher,
     PubSubService,
   ],
 })
