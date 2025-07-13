@@ -23,7 +23,7 @@
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
-    "nestjs-google-pubsub-cqrs": "file:../../../../nestjs-google-pubsub-cqrs",
+    "nestjs-google-pubsub-cqrs": "0.0.4",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1"
   },

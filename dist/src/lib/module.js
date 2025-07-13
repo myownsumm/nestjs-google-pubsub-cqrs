@@ -52,7 +52,7 @@ let PubSubCqrsModule = PubSubCqrsModule_1 = class PubSubCqrsModule extends cqrs_
             module: PubSubCqrsModule_1,
             providers: [
                 {
-                    provide: 'OPTIONS',
+                    provide: "OPTIONS",
                     useValue: options || {},
                 },
             ],
@@ -73,7 +73,7 @@ let PubSubCqrsModule = PubSubCqrsModule_1 = class PubSubCqrsModule extends cqrs_
             imports: [],
             providers: [
                 {
-                    provide: 'OPTIONS',
+                    provide: "OPTIONS",
                     ...optionsProvider,
                 },
             ],
@@ -97,7 +97,7 @@ let PubSubCqrsModule = PubSubCqrsModule_1 = class PubSubCqrsModule extends cqrs_
     }
     mapEventNamesToClasses() {
         // TODO. get service in a proper way
-        const { events } = this['explorerService'].explore();
+        const { events } = this["explorerService"].explore();
         events.forEach((handler) => {
             const [constructor] = Reflect.getMetadata(constants_1.EVENTS_HANDLER_METADATA, handler);
             this.eventNamesToClasses.set(constructor.name, constructor);
@@ -128,7 +128,8 @@ let PubSubCqrsModule = PubSubCqrsModule_1 = class PubSubCqrsModule extends cqrs_
             .pipe(
         // listen only to Events dispatched by the Models and Commands itself
         // Filter out events that have _eventInitiator (these came from Pub/Sub)
-        (0, rxjs_1.filter)((event) => !('_eventInitiator' in event) || !event._eventInitiator), (0, rxjs_1.tap)((event) => {
+        (0, rxjs_1.filter)((event) => !("_eventInitiator" in event) ||
+            !event._eventInitiator), (0, rxjs_1.tap)((event) => {
             this.pubSubService.write({
                 eventBody: (0, class_transformer_1.classToPlain)(event),
                 eventName: event.constructor.name,
@@ -145,16 +146,10 @@ exports.PubSubCqrsModule = PubSubCqrsModule = PubSubCqrsModule_1 = __decorate([
         imports: [cqrs_1.CqrsModule],
         exports: [cqrs_1.CommandBus, cqrs_1.QueryBus, cqrs_1.EventBus, cqrs_1.EventPublisher],
         providers: [
-            cqrs_1.CommandBus,
-            cqrs_1.QueryBus,
-            cqrs_1.EventBus,
-            explorer_service_1.ExplorerService,
-            cqrs_1.EventPublisher,
             service_1.PubSubService,
-            // ModuleRef removed
         ],
     }),
-    __param(5, (0, common_1.Inject)('OPTIONS')),
+    __param(5, (0, common_1.Inject)("OPTIONS")),
     __metadata("design:paramtypes", [explorer_service_1.ExplorerService,
         cqrs_1.CommandBus,
         cqrs_1.QueryBus,
