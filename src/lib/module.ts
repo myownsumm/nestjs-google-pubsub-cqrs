@@ -7,6 +7,7 @@ import {
   OnModuleInit,
   Type,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import {
   CommandBus,
   CqrsModule,
@@ -71,6 +72,7 @@ interface DiPubSubModuleOptions {
     ExplorerService,
     EventPublisher,
     PubSubService,
+    // ModuleRef removed
   ],
 })
 export class PubSubCqrsModule

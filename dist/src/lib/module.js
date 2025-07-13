@@ -151,6 +151,7 @@ exports.PubSubCqrsModule = PubSubCqrsModule = PubSubCqrsModule_1 = __decorate([
             explorer_service_1.ExplorerService,
             cqrs_1.EventPublisher,
             service_1.PubSubService,
+            // ModuleRef removed
         ],
     }),
     __param(5, (0, common_1.Inject)('OPTIONS')),
