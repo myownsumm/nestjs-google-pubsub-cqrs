@@ -29,6 +29,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "build:watch": "tsc --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "test": "jest",
