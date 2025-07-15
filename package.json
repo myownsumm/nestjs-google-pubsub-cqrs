@@ -54,7 +54,7 @@
     "node": ">=16.0.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^10.0.0"
+    "@nestjs/testing": "^11.0.0"
   },
   "workspaces": [
     ".",
