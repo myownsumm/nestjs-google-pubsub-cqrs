@@ -14,6 +14,7 @@ import {
   EventPublisher,
   IEventHandler,
   QueryBus,
+  CqrsModuleOptions,
 } from '@nestjs/cqrs';
 import { ExplorerService } from '@nestjs/cqrs/dist/services/explorer.service';
 import { PubSubService } from './service';
@@ -27,7 +28,7 @@ import { BaseEvent, PubSubEvent } from './typings';
  * Configuration options for the PubSubCqrsModule.
  * This interface defines the required parameters for connecting to Google Pub/Sub.
  */
-interface DiPubSubModuleOptions {
+interface DiPubSubModuleOptions extends CqrsModuleOptions {
   /** Name of the Google Pub/Sub subscription for this service */
   subscriptionName: string;
   /** Name of the Google Pub/Sub topic to publish/subscribe to */
