@@ -1,0 +1,11 @@
+{
+  "name": "unov-gcloud",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+    "emulator:build": "docker build -t local-pubsub-emulator:latest .",
+    "emulator:up": "docker run --rm -p 8085:8085 -e PUBSUB_PROJECT_ID=integration-test-project -e PUBSUB_TOPIC=integration-events-topic -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub -e PUBSUB_EMULATOR_PORT=8085 local-pubsub-emulator:latest",
+    "emulator:dev": "npm run emulator:build && npm run emulator:up"
+  }
+}

@@ -7,8 +7,8 @@ import { PubSubCqrsModule } from 'nestjs-google-pubsub-cqrs';
   imports: [
     PubSubCqrsModule.forRoot({
       subscriptionName: 'notifications-service-sub',
-      topicName: 'notifications-topic',
-      projectId: 'your-gcp-project-id',
+      topicName: 'integration-events-topic',
+      projectId: 'integration-test-project',
       apiEndpoint: 'localhost', // optional, for local emulator
       port: 8085 // optional, for local emulator
     })
