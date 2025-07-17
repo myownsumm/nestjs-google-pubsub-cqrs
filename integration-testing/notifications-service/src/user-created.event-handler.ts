@@ -6,6 +6,8 @@ export class UserCreatedEventHandler
   implements IEventHandler<UserCreatedEvent>
 {
   async handle(event: UserCreatedEvent) {
-    console.log(`UserCreatedEvent received: ${event.payload.userId}, ${event.payload.email}`);
+    console.log(
+      `UserCreatedEvent received: ${event.payload.userId}, ${event.payload.email}`,
+    );
   }
 }
