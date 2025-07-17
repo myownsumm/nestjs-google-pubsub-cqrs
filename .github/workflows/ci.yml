@@ -95,3 +95,107 @@ jobs:
 
       - name: Check for vulnerabilities
         run: npm audit --audit-level=moderate --production
+
+  integration-test:
+    name: Integration Test (Event Bus)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Ensure artifacts directory exists
+        run: mkdir -p integration-testing/artifacts
+
+      - name: Build main library
+        run: npm run build
+
+      - name: Build and run Pub/Sub emulator
+        run: |
+          cd integration-testing/unov-gcloud
+          docker build -t local-pubsub-emulator:latest .
+
+      - name: Start Pub/Sub emulator
+        run: |
+          docker run -d --rm -p 8085:8085 \
+            -e PUBSUB_PROJECT_ID=integration-test-project \
+            -e PUBSUB_TOPIC=integration-events-topic \
+            -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
+            -e PUBSUB_EMULATOR_PORT=8085 \
+            --name pubsub-emulator local-pubsub-emulator:latest
+
+      - name: Wait for Pub/Sub emulator to be ready
+        run: |
+          for i in {1..10}; do
+            if nc -z localhost 8085; then echo 'Pub/Sub emulator is up'; exit 0; fi
+            sleep 2
+          done
+          echo 'Pub/Sub emulator did not start in time' && exit 1
+
+      - name: Build users-service
+        run: |
+          cd integration-testing/users-service
+          npm ci
+          npm run build
+
+      - name: Build notifications-service
+        run: |
+          cd integration-testing/notifications-service
+          npm ci
+          npm run build
+
+      - name: Start users-service
+        run: |
+          export PUBSUB_EMULATOR_HOST=localhost:8085
+          echo "Starting users-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
+          nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
+          echo "Users-service started with PID: $!"
+        working-directory: integration-testing/users-service
+
+      - name: Start notifications-service
+        run: |
+          export PUBSUB_EMULATOR_HOST=localhost:8085
+          echo "Starting notifications-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
+          nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
+          echo "Notifications-service started with PID: $!"
+        working-directory: integration-testing/notifications-service
+
+      - name: Wait for services to start
+        run: |
+          echo "Waiting 5 seconds for services to initialize..."
+          sleep 5
+          echo "Checking if services are up..."
+          for i in {1..10}; do
+            if nc -z localhost 3000 && nc -z localhost 3004; then 
+              echo 'Services are up'
+              exit 0
+            fi
+            echo "Attempt $i: Services not ready yet, waiting 2 seconds..."
+            sleep 2
+          done
+          echo 'Services did not start in time' 
+          echo "Checking logs for debugging:"
+          echo "=== Users Service Log ==="
+          cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
+          echo "=== Notifications Service Log ==="
+          cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
+          exit 1
+
+      - name: Run all integration event tests
+        run: node integration-testing/ci/run-integration-tests.js
+
+      - name: Upload artifacts for debugging (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-artifacts
+          path: integration-testing/artifacts/
