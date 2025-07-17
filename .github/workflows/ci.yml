@@ -152,12 +152,12 @@ jobs:
 
       - name: Start users-service
         run: |
-          nohup node dist/users-service/src/main.js > ../../artifacts/users-service.log 2>&1 &
+          nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
         working-directory: integration-testing/users-service
 
       - name: Start notifications-service
         run: |
-          nohup node dist/notifications-service/src/main.js > ../../artifacts/notifications-service.log 2>&1 &
+          nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
         working-directory: integration-testing/notifications-service
 
       - name: Wait for services to be ready
