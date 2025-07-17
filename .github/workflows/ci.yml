@@ -152,21 +152,40 @@ jobs:
 
       - name: Start users-service
         run: |
+          export PUBSUB_EMULATOR_HOST=localhost:8085
+          echo "Starting users-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
           nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
+          echo "Users-service started with PID: $!"
         working-directory: integration-testing/users-service
 
       - name: Start notifications-service
         run: |
+          export PUBSUB_EMULATOR_HOST=localhost:8085
+          echo "Starting notifications-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
           nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
+          echo "Notifications-service started with PID: $!"
         working-directory: integration-testing/notifications-service
 
-      - name: Wait for services to be ready
+      - name: Wait for services to start
         run: |
+          echo "Waiting 5 seconds for services to initialize..."
+          sleep 5
+          echo "Checking if services are up..."
           for i in {1..10}; do
-            if nc -z localhost 3000 && nc -z localhost 3004; then echo 'Services are up'; exit 0; fi
+            if nc -z localhost 3000 && nc -z localhost 3004; then 
+              echo 'Services are up'
+              exit 0
+            fi
+            echo "Attempt $i: Services not ready yet, waiting 2 seconds..."
             sleep 2
           done
-          echo 'Services did not start in time' && exit 1
+          echo 'Services did not start in time' 
+          echo "Checking logs for debugging:"
+          echo "=== Users Service Log ==="
+          cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
+          echo "=== Notifications Service Log ==="
+          cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
+          exit 1
 
       - name: Trigger event
         run: bash integration-testing/ci/check-direct-event-dispatch.sh
