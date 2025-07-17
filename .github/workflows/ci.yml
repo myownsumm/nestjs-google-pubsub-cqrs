@@ -116,7 +116,10 @@ jobs:
       - name: Ensure artifacts directory exists
         run: mkdir -p integration-testing/artifacts
 
-      - name: Build Pub/Sub emulator Docker image
+      - name: Build main library
+        run: npm run build
+
+      - name: Build and run Pub/Sub emulator
         run: |
           cd integration-testing/unov-gcloud
           docker build -t local-pubsub-emulator:latest .
