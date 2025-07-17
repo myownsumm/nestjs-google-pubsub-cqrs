@@ -20,6 +20,8 @@ for (const script of testScripts) {
   console.log(`\n=== Running test: ${script} ===`);
   try {
     execSync(`bash ${path.join(ciDir, script)}`, { stdio: 'inherit' });
+    // Wait for events to be processed and written to logs
+    execSync('sleep 2');
   } catch (e) {
     console.error(`❌ Script ${script} failed to execute`);
     allPassed = false;
