@@ -113,6 +113,9 @@ jobs:
       - name: Install root dependencies
         run: npm ci
 
+      - name: Ensure artifacts directory exists
+        run: mkdir -p integration-testing/artifacts
+
       - name: Build Pub/Sub emulator Docker image
         run: |
           cd integration-testing/unov-gcloud
