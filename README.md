@@ -17,8 +17,16 @@ A powerful Google Pub/Sub integration for NestJS CQRS that enables seamless even
 ## 📦 Installation
 
 ```bash
-npm install nestjs-google-pubsub-cqrs @google-cloud/pubsub
+npm install nestjs-google-pubsub-cqrs
 ```
+
+> **Note:** This package lists `@nestjs/common`, `@nestjs/core`, and `@nestjs/cqrs` as peer dependencies. You must install these packages in your own application:
+>
+> ```bash
+> npm install @nestjs/common @nestjs/core @nestjs/cqrs
+> ```
+>
+> This approach ensures that your application uses a single instance of each NestJS package, avoiding issues that can arise from having multiple versions or instances of these core dependencies (such as dependency injection errors or unexpected behavior in your NestJS app).
 
 ## 🏗️ Prerequisites
 
