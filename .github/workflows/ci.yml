@@ -190,8 +190,8 @@ jobs:
           cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
           exit 1
 
-      - name: Trigger event
-        run: bash integration-testing/ci/check-direct-event-dispatch.sh
+      - name: Run all integration event tests
+        run: node integration-testing/ci/run-integration-tests.js
 
       - name: Wait for logs to be written
         run: sleep 5
