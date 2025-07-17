@@ -5,7 +5,6 @@ import {
   Module,
   OnApplicationBootstrap,
   OnModuleInit,
-  Type,
 } from "@nestjs/common";
 import {
   CommandBus,
@@ -22,6 +21,7 @@ import { classToPlain, plainToClass } from "class-transformer";
 import { EVENTS_HANDLER_METADATA } from "@nestjs/cqrs/dist/decorators/constants";
 import { filter, map, tap } from "rxjs";
 import { BaseEvent, PubSubEvent } from "./typings";
+import { InstanceWrapper } from "@nestjs/core/injector/instance-wrapper";
 
 /**
  * Configuration options for the PubSubCqrsModule.
@@ -149,20 +149,23 @@ export class PubSubCqrsModule
     // TODO. get service in a proper way
     const { events } = this["explorerService"].explore();
 
-    events.forEach((handler: Type<IEventHandler>) => {
-      const metadata = Reflect.getMetadata(EVENTS_HANDLER_METADATA, handler);
+    events.forEach((handler: InstanceWrapper<IEventHandler>) => {
+      // If handler is an InstanceWrapper, get the class from .metatype or .token
+      const target = handler.metatype || handler.token || handler;
 
-      if (!metadata || metadata.length === 0) {
-        console.warn(
-          "no metadata for handler",
-          (handler as any).token || "unknown event handler"
-        );
+      const metadata = Reflect.getMetadata(EVENTS_HANDLER_METADATA, target);
+
+      if (!metadata || (Array.isArray(metadata) && metadata.length === 0)) {
+        // no metadata for handler
         return;
       }
 
-      const [constructor] = metadata;
+      // Handle both array and single-value metadata
+      const constructor = Array.isArray(metadata) ? metadata[0] : metadata;
 
-      this.eventNamesToClasses.set(constructor.name, constructor);
+      if (constructor) {
+        this.eventNamesToClasses.set(constructor.name, constructor);
+      }
     });
   }
 
