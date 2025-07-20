@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  pubsub-emulator:
+    image: your-dockerhub-username/nestjs-google-pubsub-emulator
+    container_name: nestjs-pubsub-emulator
+    ports:
+      - "${PUBSUB_EMULATOR_PORT:-8090}:${PUBSUB_EMULATOR_PORT:-8090}"
+    environment:
+      - PUBSUB_PROJECT_ID=${PUBSUB_PROJECT_ID:-integration-test-project}
+      - PUBSUB_EMULATOR_PORT=${PUBSUB_EMULATOR_PORT:-8090}
+      - PUBSUB_TOPIC=${PUBSUB_TOPIC:-integration-events-topic}
+      - PUBSUB_SUBSCRIPTION=${PUBSUB_SUBSCRIPTION:-event-bus-monitoring-sub}
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:${PUBSUB_EMULATOR_PORT:-8090}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped 
