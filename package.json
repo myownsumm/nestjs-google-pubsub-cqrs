@@ -36,7 +36,13 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "prepublishOnly": "npm run build",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "emulator:start": "cd integration-testing && docker compose up -d",
+    "emulator:watch": "cd integration-testing && docker compose up",
+    "emulator:stop": "cd integration-testing && docker compose down",
+    "service:users": "cd integration-testing/users-service && npm run start:dev",
+    "service:notifications": "cd integration-testing/notifications-service && npm run start:dev",
+    "test:integration": "cd integration-testing && node ci/run-integration-tests.js"
   },
   "dependencies": {
     "@google-cloud/pubsub": "^4.0.2",

@@ -1,0 +1,17 @@
+services:
+  pubsub-emulator:
+    image: myownsumm/nestjs-google-pubsub-emulator:latest
+    container_name: integration-pubsub-emulator
+    ports:
+      - "8085:8090"
+    environment:
+      - PUBSUB_PROJECT_ID=integration-test-project
+      - PUBSUB_EMULATOR_PORT=8090
+      - PUBSUB_TOPIC=integration-events-topic
+      - PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped 
