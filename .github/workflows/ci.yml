@@ -119,19 +119,14 @@ jobs:
       - name: Build main library
         run: npm run build
 
-      - name: Build and run Pub/Sub emulator
+      - name: Start Pub/Sub emulator using published image
         run: |
-          cd integration-testing/unov-gcloud
-          docker build -t local-pubsub-emulator:latest .
-
-      - name: Start Pub/Sub emulator
-        run: |
-          docker run -d --rm -p 8085:8085 \
+          docker run -d --rm -p 8085:8090 \
             -e PUBSUB_PROJECT_ID=integration-test-project \
+            -e PUBSUB_EMULATOR_PORT=8090 \
             -e PUBSUB_TOPIC=integration-events-topic \
             -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
-            -e PUBSUB_EMULATOR_PORT=8085 \
-            --name pubsub-emulator local-pubsub-emulator:latest
+            --name pubsub-emulator myownsumm/nestjs-google-pubsub-emulator:latest
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
