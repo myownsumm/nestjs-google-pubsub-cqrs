@@ -131,33 +131,59 @@ jobs:
       - name: Wait for Pub/Sub emulator to be ready
         run: |
           echo "Waiting for Pub/Sub emulator to start..."
+          
+          # Give container a moment to start
+          sleep 2
+          
           # Check if container is still running
           if ! docker ps | grep -q pubsub-emulator; then
             echo "ERROR: Container is not running!"
+            echo "=== Container Status ==="
             docker ps -a | grep pubsub-emulator || echo "No container found"
+            echo "=== Container Logs (if any) ==="
+            # Try to get logs even from stopped container
+            docker logs pubsub-emulator 2>&1 || echo "No logs available"
             exit 1
           fi
           
+          echo "Container is running, checking port accessibility..."
+          
           for i in {1..15}; do
+            # First check if container is still alive
+            if ! docker ps | grep -q pubsub-emulator; then
+              echo "ERROR: Container died during startup attempt $i"
+              echo "=== Container Status ==="
+              docker ps -a | grep pubsub-emulator
+              echo "=== Container Logs ==="
+              docker logs pubsub-emulator 2>&1 || echo "No logs available"
+              exit 1
+            fi
+            
             if nc -z localhost 8085; then 
               echo 'Pub/Sub emulator port is accessible'
-              # Check container logs to ensure it's working
+              # Get logs from running container
               echo "=== Container Logs ==="
-              docker logs pubsub-emulator
+              docker logs pubsub-emulator 2>&1
               echo "=== End Container Logs ==="
               # Give it a few more seconds to fully initialize
               sleep 3
+              # Final check that container is still running
+              if ! docker ps | grep -q pubsub-emulator; then
+                echo "ERROR: Container died after port became accessible"
+                exit 1
+              fi
               echo 'Pub/Sub emulator should be ready'
               exit 0
             fi
             echo "Attempt $i: Emulator not ready, waiting 2 seconds..."
             sleep 2
           done
+          
           echo 'Pub/Sub emulator did not start in time'
           echo "=== Final Container Status ==="
           docker ps -a | grep pubsub-emulator || echo "No container found"
           echo "=== Final Container Logs ==="
-          docker logs pubsub-emulator || echo "No logs available"
+          docker logs pubsub-emulator 2>&1 || echo "No logs available"
           exit 1
 
       - name: Build users-service
