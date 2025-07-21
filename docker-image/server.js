@@ -1,5 +1,7 @@
+const { spawn } = require('child_process');
 const { PubSub } = require("@google-cloud/pubsub");
 
+// Use the exact same logic as unov-gcloud/init.js
 async function quickstart() {
   const projectId = process.env.PUBSUB_PROJECT_ID || "integration-test-project";
   const topicNameOrId = process.env.PUBSUB_TOPIC || "integration-events-topic";
@@ -50,4 +52,41 @@ async function quickstart() {
   });
 }
 
-module.exports.run = quickstart;
+// Start the emulator and run quickstart
+async function run() {
+  const port = process.env.PUBSUB_EMULATOR_PORT || 8090;
+  
+  // Start emulator
+  const emulatorProcess = spawn('/pubsub-emulator/bin/cloud-pubsub-emulator', [
+    `--host=0.0.0.0`,
+    `--port=${port}`
+  ]);
+
+  emulatorProcess.on('error', (error) => {
+    console.error(`Failed to start emulator: ${error.message}`);
+    process.exit(1);
+  });
+
+  // Wait a bit for emulator to start
+  setTimeout(async () => {
+    try {
+      await quickstart();
+    } catch (error) {
+      console.error('Failed to initialize:', error);
+      process.exit(1);
+    }
+  }, 5000);
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    emulatorProcess.kill('SIGTERM');
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    emulatorProcess.kill('SIGTERM');
+    process.exit(0);
+  });
+}
+
+run(); 

@@ -87,31 +87,50 @@ export class PubSubService {
                          apiEndpoint,
                          port,
                        }: IConnectionOptions): Promise<void> {
-    const options: PubSubOptions = { projectId };
-    if (apiEndpoint && port) {
-      options.apiEndpoint = `${ apiEndpoint }:${ port }`;
+    try {
+      console.log('🔗 PubSubService: Starting connection...');
+      console.log('Connection options:', { subscriptionName, topicName, projectId, apiEndpoint, port });
+      
+      const options: PubSubOptions = { projectId };
+      if (apiEndpoint && port) {
+        options.apiEndpoint = `${ apiEndpoint }:${ port }`;
+        console.log('Using explicit apiEndpoint:', options.apiEndpoint);
+      }
+      if (port) {
+        options.port = port;
+        console.log('Using explicit port:', options.port);
+      }
+
+      console.log('Creating PubSub client with options:', options);
+      this.pubSub = new PubSub(options);
+
+      console.log('Getting topic:', topicName);
+      this.topic = await this.getTopic(topicName);
+
+      if (!this.topic) {
+        throw new Error(`Topic was not found`);
+      }
+      console.log('✅ Topic found:', this.topic.name);
+
+      console.log('Getting subscription:', subscriptionName);
+      this.subscription = await this.getSubscription(this.topic, subscriptionName);
+      console.log('✅ Subscription ready:', this.subscription.name);
+
+      Logger.log(`Global Bus connection established - ${ subscriptionName }`);
+
+      this.subscription.on('error', (error) => {
+        Logger.error(`Error: ${ JSON.stringify(error) }`);
+      });
+
+      this.initRead();
+      console.log('✅ PubSubService: Connection complete');
+    } catch (error: unknown) {
+      console.error('❌ PubSubService: Connection failed:', error);
+      if (error instanceof Error) {
+        console.error('Error stack:', error.stack);
+      }
+      throw error;
     }
-    if (port) {
-      options.port = port;
-    }
-
-    this.pubSub = new PubSub(options);
-
-    this.topic = await this.getTopic(topicName);
-
-    if (!this.topic) {
-      throw new Error(`Topic was not found`);
-    }
-
-    this.subscription = await this.getSubscription(this.topic, subscriptionName);
-
-    Logger.log(`Global Bus connection established - ${ subscriptionName }`);
-
-    this.subscription.on('error', (error) => {
-      Logger.error(`Error: ${ JSON.stringify(error) }`);
-    });
-
-    this.initRead();
   }
 
   /**

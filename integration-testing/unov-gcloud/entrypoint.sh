@@ -1,1 +1,0 @@
-node -e 'require("/usr/app/init.js").run()' & sh /pubsub-emulator/bin/cloud-pubsub-emulator --host=0.0.0.0 --port=${PUBSUB_EMULATOR_PORT:-8090}
