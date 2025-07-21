@@ -150,16 +150,14 @@ jobs:
 
       - name: Start users-service
         run: |
-          export PUBSUB_EMULATOR_HOST=localhost:8085
-          echo "Starting users-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
+          echo "Starting users-service..."
           nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
           echo "Users-service started with PID: $!"
         working-directory: integration-testing/users-service
 
       - name: Start notifications-service
         run: |
-          export PUBSUB_EMULATOR_HOST=localhost:8085
-          echo "Starting notifications-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
+          echo "Starting notifications-service..."
           nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
           echo "Notifications-service started with PID: $!"
         working-directory: integration-testing/notifications-service
