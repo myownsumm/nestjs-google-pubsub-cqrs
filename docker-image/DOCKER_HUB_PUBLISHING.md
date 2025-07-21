@@ -10,35 +10,56 @@ This guide explains how to build and publish the NestJS Google Pub/Sub Emulator 
 
 ## Manual Publishing
 
-### 1. Build the Image
+### 1. Set Up Multi-Platform Builder
 
 ```bash
 cd docker-image
 
-# Build for multiple platforms
-docker buildx create --name multiarch --use
-docker buildx build --platform linux/amd64,linux/arm64 -t your-dockerhub-username/nestjs-google-pubsub-emulator:latest .
+# Create and use a multi-platform builder (only needed once)
+docker buildx create --name multiarch --use --driver docker-container
+
+# Verify builder supports multiple platforms
+docker buildx inspect --bootstrap
 ```
 
-### 2. Tag the Image
+### 2. Build and Push Multi-Platform Image
 
 ```bash
-# Tag with version
-docker tag your-dockerhub-username/nestjs-google-pubsub-emulator:latest your-dockerhub-username/nestjs-google-pubsub-emulator:1.0.0
+# Build for multiple platforms and push directly to Docker Hub
+# Note: --push flag is required for multi-platform builds
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t myownsumm/nestjs-google-pubsub-emulator:latest \
+  --push .
 
-# Tag as latest
-docker tag your-dockerhub-username/nestjs-google-pubsub-emulator:latest your-dockerhub-username/nestjs-google-pubsub-emulator:latest
+# For versioned releases, add version tags
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t myownsumm/nestjs-google-pubsub-emulator:latest \
+  -t myownsumm/nestjs-google-pubsub-emulator:1.0.0 \
+  --push .
 ```
 
-### 3. Push to Docker Hub
+### 3. Verify Multi-Platform Support
 
 ```bash
-# Push specific version
-docker push your-dockerhub-username/nestjs-google-pubsub-emulator:1.0.0
+# Check that both platforms are available
+docker buildx imagetools inspect myownsumm/nestjs-google-pubsub-emulator:latest
 
-# Push latest
-docker push your-dockerhub-username/nestjs-google-pubsub-emulator:latest
+# Test AMD64 version (for CI compatibility)
+docker run --rm --platform=linux/amd64 -p 8086:8090 \
+  -e PUBSUB_PROJECT_ID=test-project \
+  myownsumm/nestjs-google-pubsub-emulator:latest &
+
+# Test ARM64 version (for local development)
+docker run --rm --platform=linux/arm64 -p 8087:8090 \
+  -e PUBSUB_PROJECT_ID=test-project \
+  myownsumm/nestjs-google-pubsub-emulator:latest &
 ```
+
+### ⚠️ Important Notes
+
+- **Always use `--push` flag**: Multi-platform builds cannot be loaded locally and must be pushed directly
+- **Platform support is critical**: CI environments (GitHub Actions) use AMD64, while Apple Silicon Macs use ARM64
+- **Don't use `docker tag` and `docker push`**: These commands don't work with multi-platform manifests
 
 ## Automated Publishing with GitHub Actions
 
@@ -90,7 +111,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}
+        images: myownsumm/${{ env.DOCKER_IMAGE }}
         tags: |
           type=ref,event=branch
           type=semver,pattern={{version}}
@@ -111,70 +132,111 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}
+        repository: myownsumm/${{ env.DOCKER_IMAGE }}
         readme-filepath: ./docker-image/README.md
 ```
 
 ## Testing the Published Image
 
-After publishing, test the image:
+After publishing, test the image on both platforms:
 
 ```bash
-# Pull and run
-docker run -d --name test-emulator -p 8085:8085 -p 3000:3000 your-dockerhub-username/nestjs-google-pubsub-emulator:latest
+# Test AMD64 version (for CI environments like GitHub Actions)
+docker run --rm --platform=linux/amd64 -p 8085:8090 \
+  -e PUBSUB_PROJECT_ID=integration-test-project \
+  -e PUBSUB_TOPIC=integration-events-topic \
+  -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
+  myownsumm/nestjs-google-pubsub-emulator:latest &
 
-# Test health endpoint
-curl http://localhost:3000/health
+# Test ARM64 version (for Apple Silicon Macs)
+docker run --rm --platform=linux/arm64 -p 8086:8090 \
+  -e PUBSUB_PROJECT_ID=integration-test-project \
+  -e PUBSUB_TOPIC=integration-events-topic \
+  -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
+  myownsumm/nestjs-google-pubsub-emulator:latest &
 
-# Test info endpoint
-curl http://localhost:3000/info
+# Wait for containers to start
+sleep 5
+
+# Test connectivity
+nc -z localhost 8085 && echo "✅ AMD64 version is responding"
+nc -z localhost 8086 && echo "✅ ARM64 version is responding"
 
 # Clean up
-docker stop test-emulator && docker rm test-emulator
+docker stop $(docker ps -q --filter ancestor=myownsumm/nestjs-google-pubsub-emulator:latest)
 ```
 
 ## Docker Hub Repository Setup
 
 ### Repository Description
 ```
-A production-ready Google Pub/Sub emulator with HTTP API for local NestJS CQRS development
+A production-ready Google Pub/Sub emulator for NestJS CQRS development. Supports both AMD64 and ARM64 architectures for CI/CD and local development.
 ```
 
 ### Tags and Versions
 
-- `latest`: Latest stable version
-- `1.0.0`, `1.0`, `1`: Semantic versioning
-- `main`: Latest from main branch
+- `latest`: Latest stable version (multi-platform)
+- `1.0.0`, `1.0`, `1`: Semantic versioning (multi-platform)
+- `main`: Latest from main branch (multi-platform)
 
 ### Repository Keywords
 ```
-pubsub, emulator, nestjs, cqrs, google-cloud, development, testing
+pubsub, emulator, nestjs, cqrs, google-cloud, development, testing, multi-platform, amd64, arm64
 ```
 
 ## Usage Examples for Users
 
-Once published, users can use it like this:
+### Basic Usage
 
 ```bash
-# Simple usage
-docker run -d -p 8085:8085 -p 3000:3000 your-dockerhub-username/nestjs-google-pubsub-emulator
+# Simple usage (Docker will auto-select the correct platform)
+docker run -d -p 8085:8090 myownsumm/nestjs-google-pubsub-emulator:latest
+
+# Explicit platform selection for CI environments
+docker run -d --platform=linux/amd64 -p 8085:8090 \
+  myownsumm/nestjs-google-pubsub-emulator:latest
 
 # With custom configuration
-docker run -d \
-  -p 8085:8085 \
-  -p 3000:3000 \
+docker run -d --platform=linux/amd64 -p 8085:8090 \
   -e PUBSUB_PROJECT_ID=my-project \
-  -e PUBSUB_DEFAULT_TOPICS=events,notifications \
-  your-dockerhub-username/nestjs-google-pubsub-emulator
+  -e PUBSUB_TOPIC=my-events \
+  -e PUBSUB_SUBSCRIPTION=my-events-sub \
+  myownsumm/nestjs-google-pubsub-emulator:latest
+```
 
-# With docker-compose
+### Docker Compose
+
+```yaml
 version: '3.8'
 services:
-  pubsub:
-    image: your-dockerhub-username/nestjs-google-pubsub-emulator
+  pubsub-emulator:
+    image: myownsumm/nestjs-google-pubsub-emulator:latest
+    platform: linux/amd64  # Specify platform for consistency
     ports:
-      - "8085:8085"
-      - "3000:3000"
+      - "8085:8090"
+    environment:
+      - PUBSUB_PROJECT_ID=integration-test-project
+      - PUBSUB_TOPIC=integration-events-topic
+      - PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+```
+
+### CI/CD Integration (GitHub Actions)
+
+```yaml
+- name: Start Pub/Sub emulator
+  run: |
+    docker run -d --rm --platform=linux/amd64 -p 8085:8090 \
+      -e PUBSUB_PROJECT_ID=integration-test-project \
+      -e PUBSUB_EMULATOR_PORT=8090 \
+      -e PUBSUB_TOPIC=integration-events-topic \
+      -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
+      --name pubsub-emulator \
+      myownsumm/nestjs-google-pubsub-emulator:latest
 ```
 
 ## Maintenance
@@ -183,12 +245,25 @@ services:
 
 1. Make changes to the Docker image files
 2. Update version in `package.json` and `Dockerfile` labels
-3. Commit and push changes
-4. Create a new release on GitHub (triggers automated build)
-5. Update Docker Hub repository description if needed
+3. Test locally on both platforms
+4. Commit and push changes
+5. Create a new release on GitHub (triggers automated multi-platform build)
+6. Verify both AMD64 and ARM64 versions work correctly
 
 ### Monitoring
 
 - Check GitHub Actions for build status
-- Monitor Docker Hub for pull statistics
-- Review user feedback and issues 
+- Monitor Docker Hub for pull statistics across platforms
+- Verify multi-platform manifest is created correctly
+- Review user feedback and platform-specific issues
+
+### Troubleshooting
+
+**Platform Mismatch Issues:**
+```bash
+# Check available platforms
+docker buildx imagetools inspect myownsumm/nestjs-google-pubsub-emulator:latest
+
+# Force specific platform if auto-detection fails
+docker run --platform=linux/amd64 myownsumm/nestjs-google-pubsub-emulator:latest
+```
