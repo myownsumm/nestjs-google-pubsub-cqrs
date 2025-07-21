@@ -122,6 +122,7 @@ jobs:
       - name: Start Pub/Sub emulator using published image
         run: |
           docker run -d --rm -p 8085:8090 \
+            --platform linux/amd64 \
             -e PUBSUB_PROJECT_ID=integration-test-project \
             -e PUBSUB_EMULATOR_PORT=8090 \
             -e PUBSUB_TOPIC=integration-events-topic \
@@ -130,8 +131,16 @@ jobs:
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
-          for i in {1..10}; do
-            if nc -z localhost 8085; then echo 'Pub/Sub emulator is up'; exit 0; fi
+          echo "Waiting for Pub/Sub emulator to start..."
+          for i in {1..15}; do
+            if nc -z localhost 8085; then 
+              echo 'Pub/Sub emulator port is accessible'
+              # Give it a few more seconds to fully initialize
+              sleep 3
+              echo 'Pub/Sub emulator should be ready'
+              exit 0
+            fi
+            echo "Attempt $i: Emulator not ready, waiting 2 seconds..."
             sleep 2
           done
           echo 'Pub/Sub emulator did not start in time' && exit 1
@@ -166,23 +175,33 @@ jobs:
 
       - name: Wait for services to start
         run: |
-          echo "Waiting 5 seconds for services to initialize..."
-          sleep 5
+          echo "Waiting 10 seconds for services to initialize..."
+          sleep 10
           echo "Checking if services are up..."
-          for i in {1..10}; do
+          for i in {1..15}; do
             if nc -z localhost 3000 && nc -z localhost 3004; then 
               echo 'Services are up'
+              # Give them a moment to be fully ready
+              sleep 2
               exit 0
             fi
-            echo "Attempt $i: Services not ready yet, waiting 2 seconds..."
-            sleep 2
+            echo "Attempt $i: Services not ready yet, waiting 3 seconds..."
+            if [ $i -eq 5 ] || [ $i -eq 10 ]; then
+              echo "=== Debug: Users Service Log (attempt $i) ==="
+              tail -20 integration-testing/artifacts/users-service.log || echo "No users-service log found"
+              echo "=== Debug: Notifications Service Log (attempt $i) ==="
+              tail -20 integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
+            fi
+            sleep 3
           done
           echo 'Services did not start in time' 
-          echo "Checking logs for debugging:"
+          echo "=== Final Debug Logs ==="
           echo "=== Users Service Log ==="
           cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
           echo "=== Notifications Service Log ==="
           cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
+          echo "=== Docker Container Logs ==="
+          docker logs pubsub-emulator || echo "No container logs"
           exit 1
 
       - name: Run all integration event tests
