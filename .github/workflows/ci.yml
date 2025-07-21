@@ -107,8 +107,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
-          cache: 'npm'
+          node-version: "20.x"
+          cache: "npm"
 
       - name: Install root dependencies
         run: npm ci
@@ -116,74 +116,25 @@ jobs:
       - name: Ensure artifacts directory exists
         run: mkdir -p integration-testing/artifacts
 
-      - name: Build main library
-        run: npm run build
-
-      - name: Start Pub/Sub emulator using published image
-        run: |
-          docker run -d --rm -p 8085:8090 \
-            -e PUBSUB_PROJECT_ID=integration-test-project \
-            -e PUBSUB_EMULATOR_PORT=8090 \
-            -e PUBSUB_TOPIC=integration-events-topic \
-            -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
-            --name pubsub-emulator myownsumm/nestjs-google-pubsub-emulator:latest
+      - name: Start Pub/Sub emulator using docker-compose
+        run: npm run emulator:start
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
           echo "Waiting for Pub/Sub emulator to start..."
-          
-          # Give container a moment to start
-          sleep 2
-          
-          # Check if container is still running
-          if ! docker ps | grep -q pubsub-emulator; then
-            echo "ERROR: Container is not running!"
-            echo "=== Container Status ==="
-            docker ps -a | grep pubsub-emulator || echo "No container found"
-            echo "=== Container Logs (if any) ==="
-            # Try to get logs even from stopped container
-            docker logs pubsub-emulator 2>&1 || echo "No logs available"
-            exit 1
-          fi
-          
-          echo "Container is running, checking port accessibility..."
-          
-          for i in {1..15}; do
-            # First check if container is still alive
-            if ! docker ps | grep -q pubsub-emulator; then
-              echo "ERROR: Container died during startup attempt $i"
-              echo "=== Container Status ==="
-              docker ps -a | grep pubsub-emulator
-              echo "=== Container Logs ==="
-              docker logs pubsub-emulator 2>&1 || echo "No logs available"
-              exit 1
-            fi
-            
+          for i in {1..30}; do
             if nc -z localhost 8085; then 
               echo 'Pub/Sub emulator port is accessible'
-              # Get logs from running container
-              echo "=== Container Logs ==="
-              docker logs pubsub-emulator 2>&1
-              echo "=== End Container Logs ==="
-              # Give it a few more seconds to fully initialize
               sleep 3
-              # Final check that container is still running
-              if ! docker ps | grep -q pubsub-emulator; then
-                echo "ERROR: Container died after port became accessible"
-                exit 1
-              fi
               echo 'Pub/Sub emulator should be ready'
               exit 0
             fi
             echo "Attempt $i: Emulator not ready, waiting 2 seconds..."
             sleep 2
           done
-          
           echo 'Pub/Sub emulator did not start in time'
-          echo "=== Final Container Status ==="
-          docker ps -a | grep pubsub-emulator || echo "No container found"
-          echo "=== Final Container Logs ==="
-          docker logs pubsub-emulator 2>&1 || echo "No logs available"
+          echo "=== Docker Compose Logs ==="
+          cd integration-testing && docker compose logs pubsub-emulator || echo "No logs available"
           exit 1
 
       - name: Build users-service
@@ -202,36 +153,16 @@ jobs:
         run: |
           export PUBSUB_EMULATOR_HOST=localhost:8085
           echo "Starting users-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
-          timeout 60 nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
-          USERS_PID=$!
-          echo "Users-service started with PID: $USERS_PID"
-          # Give it a moment to start
-          sleep 2
-          # Check if process is still running
-          if ! kill -0 $USERS_PID 2>/dev/null; then
-            echo "ERROR: Users service process died immediately!"
-            echo "=== Users Service Log ==="
-            cat ../artifacts/users-service.log || echo "No log file found"
-            exit 1
-          fi
+          nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
+          echo "Users-service started with PID: $!"
         working-directory: integration-testing/users-service
 
       - name: Start notifications-service
         run: |
           export PUBSUB_EMULATOR_HOST=localhost:8085
           echo "Starting notifications-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
-          timeout 60 nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
-          NOTIFICATIONS_PID=$!
-          echo "Notifications-service started with PID: $NOTIFICATIONS_PID"
-          # Give it a moment to start
-          sleep 2
-          # Check if process is still running
-          if ! kill -0 $NOTIFICATIONS_PID 2>/dev/null; then
-            echo "ERROR: Notifications service process died immediately!"
-            echo "=== Notifications Service Log ==="
-            cat ../artifacts/notifications-service.log || echo "No log file found"
-            exit 1
-          fi
+          nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
+          echo "Notifications-service started with PID: $!"
         working-directory: integration-testing/notifications-service
 
       - name: Wait for services to start
@@ -242,7 +173,6 @@ jobs:
           for i in {1..15}; do
             if nc -z localhost 3000 && nc -z localhost 3004; then 
               echo 'Services are up'
-              # Give them a moment to be fully ready
               sleep 2
               exit 0
             fi
@@ -261,12 +191,12 @@ jobs:
           cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
           echo "=== Notifications Service Log ==="
           cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
-          echo "=== Docker Container Logs ==="
-          docker logs pubsub-emulator || echo "No container logs"
+          echo "=== Emulator Logs ==="
+          cd integration-testing && docker compose logs pubsub-emulator || echo "No emulator logs"
           exit 1
 
       - name: Run all integration event tests
-        run: node integration-testing/ci/run-integration-tests.js
+        run: npm run test:integration
 
       - name: Upload artifacts for debugging (always)
         if: always()
