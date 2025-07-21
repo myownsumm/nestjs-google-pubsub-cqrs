@@ -122,7 +122,6 @@ jobs:
       - name: Start Pub/Sub emulator using published image
         run: |
           docker run -d --rm -p 8085:8090 \
-            --platform linux/amd64 \
             -e PUBSUB_PROJECT_ID=integration-test-project \
             -e PUBSUB_EMULATOR_PORT=8090 \
             -e PUBSUB_TOPIC=integration-events-topic \
