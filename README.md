@@ -207,9 +207,237 @@ export class SendWelcomeEmailHandler
 }
 ```
 
-## 🔧 Local Development
+## 🔧 Local Development with Google Pub/Sub Emulator
 
-Local development workaround to be added soon.
+For local development, you can use the Google Pub/Sub emulator instead of connecting to actual Google Cloud Pub/Sub. This library provides a pre-configured Docker image that makes local development seamless.
+
+### Quick Start with Docker Compose
+
+The easiest way to get started is using Docker Compose. Create a `docker-compose.yml` file in your project:
+
+```yaml
+services:
+  pubsub-emulator:
+    image: myownsumm/nestjs-google-pubsub-emulator:latest
+    container_name: pubsub-emulator
+    ports:
+      - "8085:8090"
+    environment:
+      - PUBSUB_PROJECT_ID=your-local-project
+      - PUBSUB_EMULATOR_PORT=8090
+      - PUBSUB_TOPIC=your-events-topic
+      - PUBSUB_SUBSCRIPTION=your-service-subscription
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+```
+
+### Start the Emulator
+
+```bash
+# Start the emulator in background
+docker compose up -d
+
+# Or start with logs visible
+docker compose up
+```
+
+### Configure Your NestJS Application
+
+Update your NestJS module configuration to connect to the local emulator:
+
+```typescript
+import { Module } from '@nestjs/common';
+import { PubSubCqrsModule } from 'nestjs-google-pubsub-cqrs';
+
+@Module({
+  imports: [
+    PubSubCqrsModule.forRoot({
+      subscriptionName: 'your-service-subscription',
+      topicName: 'your-events-topic',
+      projectId: 'your-local-project',
+      apiEndpoint: 'localhost', // Points to emulator
+      port: 8085, // Emulator port
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+### Environment-Based Configuration
+
+For better flexibility between local and production environments:
+
+```typescript
+PubSubCqrsModule.forRootAsync({
+  useFactory: async (configService: ConfigService) => ({
+    subscriptionName: configService.get('PUBSUB_SUBSCRIPTION'),
+    topicName: configService.get('PUBSUB_TOPIC'),
+    projectId: configService.get('PUBSUB_PROJECT_ID'),
+    // Only set these for local development
+    apiEndpoint: configService.get('PUBSUB_API_ENDPOINT'), // 'localhost' for local
+    port: configService.get('PUBSUB_PORT'), // 8085 for local
+  }),
+  inject: [ConfigService],
+});
+```
+
+### Environment Variables
+
+Create a `.env` file for local development:
+
+```bash
+# Local development with emulator
+PUBSUB_PROJECT_ID=your-local-project
+PUBSUB_TOPIC=your-events-topic
+PUBSUB_SUBSCRIPTION=your-service-subscription
+PUBSUB_API_ENDPOINT=localhost
+PUBSUB_PORT=8085
+
+# For production, remove PUBSUB_API_ENDPOINT and PUBSUB_PORT
+# PUBSUB_PROJECT_ID=your-production-project-id
+# PUBSUB_TOPIC=your-production-topic
+# PUBSUB_SUBSCRIPTION=your-production-subscription
+```
+
+### Multi-Service Setup
+
+For microservices architecture, each service should have its own subscription but share the same topic:
+
+**Service A (Publisher)**
+```typescript
+PubSubCqrsModule.forRoot({
+  subscriptionName: 'service-a-subscription',
+  topicName: 'shared-events-topic',
+  projectId: 'your-local-project',
+  apiEndpoint: 'localhost',
+  port: 8085,
+})
+```
+
+**Service B (Subscriber)**
+```typescript
+PubSubCqrsModule.forRoot({
+  subscriptionName: 'service-b-subscription',
+  topicName: 'shared-events-topic', // Same topic
+  projectId: 'your-local-project',
+  apiEndpoint: 'localhost',
+  port: 8085,
+})
+```
+
+### Docker Compose for Multiple Services
+
+```yaml
+services:
+  pubsub-emulator:
+    image: myownsumm/nestjs-google-pubsub-emulator:latest
+    container_name: pubsub-emulator
+    ports:
+      - "8085:8090"
+    environment:
+      - PUBSUB_PROJECT_ID=microservices-local
+      - PUBSUB_EMULATOR_PORT=8090
+      - PUBSUB_TOPIC=shared-events-topic
+      - PUBSUB_SUBSCRIPTION=monitoring-subscription
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:8090"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  users-service:
+    build: ./users-service
+    ports:
+      - "3001:3000"
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    environment:
+      - PUBSUB_PROJECT_ID=microservices-local
+      - PUBSUB_TOPIC=shared-events-topic
+      - PUBSUB_SUBSCRIPTION=users-service-subscription
+      - PUBSUB_API_ENDPOINT=pubsub-emulator
+      - PUBSUB_PORT=8090
+
+  notifications-service:
+    build: ./notifications-service
+    ports:
+      - "3002:3000"
+    depends_on:
+      pubsub-emulator:
+        condition: service_healthy
+    environment:
+      - PUBSUB_PROJECT_ID=microservices-local
+      - PUBSUB_TOPIC=shared-events-topic
+      - PUBSUB_SUBSCRIPTION=notifications-service-subscription
+      - PUBSUB_API_ENDPOINT=pubsub-emulator
+      - PUBSUB_PORT=8090
+```
+
+### Alternative: Direct Docker Run
+
+If you prefer not to use Docker Compose:
+
+```bash
+# Start the emulator
+docker run -d \
+  --name pubsub-emulator \
+  -p 8085:8090 \
+  -e PUBSUB_PROJECT_ID=your-local-project \
+  -e PUBSUB_EMULATOR_PORT=8090 \
+  -e PUBSUB_TOPIC=your-events-topic \
+  -e PUBSUB_SUBSCRIPTION=your-service-subscription \
+  myownsumm/nestjs-google-pubsub-emulator:latest
+
+# Stop the emulator
+docker stop pubsub-emulator
+docker rm pubsub-emulator
+```
+
+### Emulator Configuration Options
+
+The emulator Docker image supports these environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PUBSUB_PROJECT_ID` | Project ID for emulator | `test-project` |
+| `PUBSUB_EMULATOR_PORT` | Internal emulator port | `8090` |
+| `PUBSUB_TOPIC` | Topic to create on startup | `events-topic` |
+| `PUBSUB_SUBSCRIPTION` | Subscription to create on startup | `events-subscription` |
+
+### Troubleshooting Local Development
+
+**Connection Issues**
+- Ensure the emulator is running: `docker ps`
+- Check emulator logs: `docker logs pubsub-emulator`
+- Verify port mapping: emulator runs on internal port 8090, mapped to host port 8085
+
+**Events Not Being Delivered**
+- Each service must have a unique `subscriptionName`
+- All services should use the same `topicName`
+- Verify your event handlers are properly registered
+
+**Docker Issues**
+- Pull the latest image: `docker pull myownsumm/nestjs-google-pubsub-emulator:latest`
+- Clean up containers: `docker compose down && docker compose up -d`
+
+### Production Deployment
+
+When deploying to production, simply remove the `apiEndpoint` and `port` configurations:
+
+```typescript
+// Production configuration
+PubSubCqrsModule.forRoot({
+  subscriptionName: 'your-service-subscription',
+  topicName: 'your-events-topic',
+  projectId: 'your-production-project-id',
+  // No apiEndpoint or port - uses Google Cloud Pub/Sub
+})
+```
 
 ## 📚 API Reference
 
