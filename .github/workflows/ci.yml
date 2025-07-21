@@ -116,8 +116,14 @@ jobs:
       - name: Ensure artifacts directory exists
         run: mkdir -p integration-testing/artifacts
 
+      - name: Build main library
+        run: npm run build
+
       - name: Start Pub/Sub emulator using docker-compose
-        run: npm run emulator:start
+        run: |
+          cd integration-testing
+          # Try to use the published image, but with platform specification if available
+          DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d || docker compose up -d
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
