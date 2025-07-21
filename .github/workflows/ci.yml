@@ -131,9 +131,20 @@ jobs:
       - name: Wait for Pub/Sub emulator to be ready
         run: |
           echo "Waiting for Pub/Sub emulator to start..."
+          # Check if container is still running
+          if ! docker ps | grep -q pubsub-emulator; then
+            echo "ERROR: Container is not running!"
+            docker ps -a | grep pubsub-emulator || echo "No container found"
+            exit 1
+          fi
+          
           for i in {1..15}; do
             if nc -z localhost 8085; then 
               echo 'Pub/Sub emulator port is accessible'
+              # Check container logs to ensure it's working
+              echo "=== Container Logs ==="
+              docker logs pubsub-emulator
+              echo "=== End Container Logs ==="
               # Give it a few more seconds to fully initialize
               sleep 3
               echo 'Pub/Sub emulator should be ready'
@@ -142,7 +153,12 @@ jobs:
             echo "Attempt $i: Emulator not ready, waiting 2 seconds..."
             sleep 2
           done
-          echo 'Pub/Sub emulator did not start in time' && exit 1
+          echo 'Pub/Sub emulator did not start in time'
+          echo "=== Final Container Status ==="
+          docker ps -a | grep pubsub-emulator || echo "No container found"
+          echo "=== Final Container Logs ==="
+          docker logs pubsub-emulator || echo "No logs available"
+          exit 1
 
       - name: Build users-service
         run: |
@@ -160,16 +176,36 @@ jobs:
         run: |
           export PUBSUB_EMULATOR_HOST=localhost:8085
           echo "Starting users-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
-          nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
-          echo "Users-service started with PID: $!"
+          timeout 60 nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
+          USERS_PID=$!
+          echo "Users-service started with PID: $USERS_PID"
+          # Give it a moment to start
+          sleep 2
+          # Check if process is still running
+          if ! kill -0 $USERS_PID 2>/dev/null; then
+            echo "ERROR: Users service process died immediately!"
+            echo "=== Users Service Log ==="
+            cat ../artifacts/users-service.log || echo "No log file found"
+            exit 1
+          fi
         working-directory: integration-testing/users-service
 
       - name: Start notifications-service
         run: |
           export PUBSUB_EMULATOR_HOST=localhost:8085
           echo "Starting notifications-service with PUBSUB_EMULATOR_HOST=$PUBSUB_EMULATOR_HOST"
-          nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
-          echo "Notifications-service started with PID: $!"
+          timeout 60 nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
+          NOTIFICATIONS_PID=$!
+          echo "Notifications-service started with PID: $NOTIFICATIONS_PID"
+          # Give it a moment to start
+          sleep 2
+          # Check if process is still running
+          if ! kill -0 $NOTIFICATIONS_PID 2>/dev/null; then
+            echo "ERROR: Notifications service process died immediately!"
+            echo "=== Notifications Service Log ==="
+            cat ../artifacts/notifications-service.log || echo "No log file found"
+            exit 1
+          fi
         working-directory: integration-testing/notifications-service
 
       - name: Wait for services to start
