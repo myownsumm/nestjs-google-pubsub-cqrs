@@ -121,20 +121,44 @@ jobs:
 
       - name: Start Pub/Sub emulator using published image
         run: |
+          echo "🚀 Starting Pub/Sub emulator..."
           docker run -d --rm --platform=linux/amd64 -p 8085:8090 \
             -e PUBSUB_PROJECT_ID=integration-test-project \
             -e PUBSUB_EMULATOR_PORT=8090 \
             -e PUBSUB_TOPIC=integration-events-topic \
             -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
             --name pubsub-emulator myownsumm/nestjs-google-pubsub-emulator:latest
+          
+          echo "⏳ Waiting for container to start..."
+          sleep 3
+          
+          echo "📋 Container status:"
+          docker ps -a --filter name=pubsub-emulator
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
-          for i in {1..10}; do
-            if nc -z localhost 8085; then echo 'Pub/Sub emulator is up'; exit 0; fi
-            sleep 2
+          echo "🔍 Waiting for Pub/Sub emulator to be ready..."
+          for i in {1..15}; do
+            echo "Attempt $i/15: Checking if emulator is responding..."
+            
+            # Check if container is still running
+            if ! docker ps --filter name=pubsub-emulator --filter status=running | grep -q pubsub-emulator; then
+              echo "❌ Container is not running!"
+              docker ps -a --filter name=pubsub-emulator
+              docker logs pubsub-emulator || echo "No logs available"
+              exit 1
+            fi
+            
+            # Check if port is responding
+            if nc -z localhost 8085; then
+              echo '✅ Pub/Sub emulator is up and responding!'
+              exit 0
+            fi
+            
+            echo "⏳ Port not ready yet, waiting 3 seconds..."
+            sleep 3
           done
-          echo 'Pub/Sub emulator did not start in time' && exit 1
+          echo '❌ Pub/Sub emulator did not start in time' && exit 1
 
       - name: Verify emulator container status
         run: |
@@ -161,6 +185,24 @@ jobs:
           cd integration-testing/notifications-service
           npm ci
           npm run build
+
+      - name: Final emulator health check
+        run: |
+          echo "🏥 Final health check before starting services..."
+          if ! docker ps --filter name=pubsub-emulator --filter status=running | grep -q pubsub-emulator; then
+            echo "❌ Emulator container stopped during builds!"
+            docker ps -a --filter name=pubsub-emulator
+            docker logs pubsub-emulator || echo "No logs available"
+            exit 1
+          fi
+          
+          if ! nc -z localhost 8085; then
+            echo "❌ Emulator port not responding!"
+            docker logs pubsub-emulator
+            exit 1
+          fi
+          
+          echo "✅ Emulator is healthy and ready for service connections"
 
       - name: Start users-service
         run: |
