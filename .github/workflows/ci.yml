@@ -107,8 +107,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
-          cache: "npm"
+          node-version: '20.x'
+          cache: 'npm'
 
       - name: Install root dependencies
         run: npm ci
@@ -119,29 +119,22 @@ jobs:
       - name: Build main library
         run: npm run build
 
-      - name: Start Pub/Sub emulator using docker-compose
+      - name: Start Pub/Sub emulator using published image
         run: |
-          cd integration-testing
-          # Try to use the published image, but with platform specification if available
-          DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up -d || docker compose up -d
+          docker run -d --rm -p 8085:8090 \
+            -e PUBSUB_PROJECT_ID=integration-test-project \
+            -e PUBSUB_EMULATOR_PORT=8090 \
+            -e PUBSUB_TOPIC=integration-events-topic \
+            -e PUBSUB_SUBSCRIPTION=event-bus-monitoring-sub \
+            --name pubsub-emulator myownsumm/nestjs-google-pubsub-emulator:latest
 
       - name: Wait for Pub/Sub emulator to be ready
         run: |
-          echo "Waiting for Pub/Sub emulator to start..."
-          for i in {1..30}; do
-            if nc -z localhost 8085; then 
-              echo 'Pub/Sub emulator port is accessible'
-              sleep 3
-              echo 'Pub/Sub emulator should be ready'
-              exit 0
-            fi
-            echo "Attempt $i: Emulator not ready, waiting 2 seconds..."
+          for i in {1..10}; do
+            if nc -z localhost 8085; then echo 'Pub/Sub emulator is up'; exit 0; fi
             sleep 2
           done
-          echo 'Pub/Sub emulator did not start in time'
-          echo "=== Docker Compose Logs ==="
-          cd integration-testing && docker compose logs pubsub-emulator || echo "No logs available"
-          exit 1
+          echo 'Pub/Sub emulator did not start in time' && exit 1
 
       - name: Build users-service
         run: |
@@ -173,36 +166,27 @@ jobs:
 
       - name: Wait for services to start
         run: |
-          echo "Waiting 10 seconds for services to initialize..."
-          sleep 10
+          echo "Waiting 5 seconds for services to initialize..."
+          sleep 5
           echo "Checking if services are up..."
-          for i in {1..15}; do
+          for i in {1..10}; do
             if nc -z localhost 3000 && nc -z localhost 3004; then 
               echo 'Services are up'
-              sleep 2
               exit 0
             fi
-            echo "Attempt $i: Services not ready yet, waiting 3 seconds..."
-            if [ $i -eq 5 ] || [ $i -eq 10 ]; then
-              echo "=== Debug: Users Service Log (attempt $i) ==="
-              tail -20 integration-testing/artifacts/users-service.log || echo "No users-service log found"
-              echo "=== Debug: Notifications Service Log (attempt $i) ==="
-              tail -20 integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
-            fi
-            sleep 3
+            echo "Attempt $i: Services not ready yet, waiting 2 seconds..."
+            sleep 2
           done
           echo 'Services did not start in time' 
-          echo "=== Final Debug Logs ==="
+          echo "Checking logs for debugging:"
           echo "=== Users Service Log ==="
           cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
           echo "=== Notifications Service Log ==="
           cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
-          echo "=== Emulator Logs ==="
-          cd integration-testing && docker compose logs pubsub-emulator || echo "No emulator logs"
           exit 1
 
       - name: Run all integration event tests
-        run: npm run test:integration
+        run: node integration-testing/ci/run-integration-tests.js
 
       - name: Upload artifacts for debugging (always)
         if: always()
