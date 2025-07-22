@@ -5,6 +5,21 @@ const { execSync } = require('child_process');
 const ciDir = __dirname;
 const artifactsDir = path.join(__dirname, '../artifacts');
 
+// Clean artifacts directory before running tests
+console.log('🧹 Cleaning artifacts directory...');
+if (fs.existsSync(artifactsDir)) {
+  const files = fs.readdirSync(artifactsDir);
+  for (const file of files) {
+    if (file.endsWith('.log')) {
+      fs.unlinkSync(path.join(artifactsDir, file));
+      console.log(`🗑️  Deleted: ${file}`);
+    }
+  }
+} else {
+  fs.mkdirSync(artifactsDir, { recursive: true });
+  console.log('📁 Created artifacts directory');
+}
+
 const testScripts = fs.readdirSync(ciDir)
   .filter(f => f.endsWith('.sh'));
 
