@@ -1,10 +1,10 @@
 {
   "users-service": {
-    "published": ["UserCreatedEvent"],
+    "published": [{"event": "UserCreatedEvent", "count": 1}],
     "received": []
   },
   "notifications-service": {
     "published": [],
-    "received": ["UserCreatedEvent"]
+    "received": [{"event": "UserCreatedEvent", "count": 1}]
   }
 } 
