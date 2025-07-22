@@ -1,0 +1,10 @@
+{
+  "users-service": {
+    "published": [{"event": "UserLicenseUpgradeEvent", "count": 100}],
+    "received": []
+  },
+  "notifications-service": {
+    "published": [],
+    "received": [{"event": "UserLicenseUpgradeEvent", "count": 100}]
+  }
+} 
