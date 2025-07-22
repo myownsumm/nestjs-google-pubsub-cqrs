@@ -36,7 +36,7 @@ export class AppController {
     const licenseTypes = ['basic', 'premium', 'enterprise'];
     const results: Array<{ userId: string; licenseType: string; upgradeDate: string }> = [];
 
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 100; i++) {
       const userId = `user${i}`;
       const licenseType = licenseTypes[i % licenseTypes.length];
       const upgradeDate = new Date().toISOString();
