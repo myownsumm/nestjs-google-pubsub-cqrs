@@ -1,0 +1,99 @@
+name: 'Setup and Start Services'
+description: 'Build and start integration test services'
+
+inputs:
+  users-service-port:
+    description: 'Users service port'
+    required: false
+    default: '3000'
+  notifications-service-port:
+    description: 'Notifications service port'
+    required: false
+    default: '3004'
+  max-wait-time:
+    description: 'Maximum wait time in seconds'
+    required: false
+    default: '45'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build users-service
+      shell: bash
+      run: |
+        echo "🔨 Building users-service..."
+        cd integration-testing/users-service
+        npm ci
+        npm run build
+
+    - name: Build notifications-service
+      shell: bash
+      run: |
+        echo "🔨 Building notifications-service..."
+        cd integration-testing/notifications-service
+        npm ci
+        npm run build
+
+    - name: Start users-service
+      shell: bash
+      run: |
+        echo "🚀 Starting users-service..."
+        cd integration-testing/users-service
+        nohup node dist/users-service/src/main.js > ../artifacts/users-service.log 2>&1 &
+        echo "Users-service started with PID: $!"
+
+    - name: Start notifications-service
+      shell: bash
+      run: |
+        echo "🚀 Starting notifications-service..."
+        cd integration-testing/notifications-service
+        nohup node dist/notifications-service/src/main.js > ../artifacts/notifications-service.log 2>&1 &
+        echo "Notifications-service started with PID: $!"
+
+    - name: Wait for services to start
+      shell: bash
+      run: |
+        echo "⏳ Waiting for services to initialize..."
+        sleep 10
+        
+        echo "🔍 Checking if services are up..."
+        max_attempts=$(( ${{ inputs.max-wait-time }} / 3 ))
+        
+        for i in $(seq 1 $max_attempts); do
+          echo "Attempt $i/$max_attempts: Checking ports ${{ inputs.users-service-port }} and ${{ inputs.notifications-service-port }}..."
+          
+          users_up=false
+          notifications_up=false
+          
+          if nc -z localhost ${{ inputs.users-service-port }}; then
+            echo "✅ Port ${{ inputs.users-service-port }} (users-service) is open"
+            users_up=true
+          else
+            echo "❌ Port ${{ inputs.users-service-port }} (users-service) is not open"
+          fi
+          
+          if nc -z localhost ${{ inputs.notifications-service-port }}; then
+            echo "✅ Port ${{ inputs.notifications-service-port }} (notifications-service) is open"
+            notifications_up=true
+          else
+            echo "❌ Port ${{ inputs.notifications-service-port }} (notifications-service) is not open"
+          fi
+          
+          if [ "$users_up" = true ] && [ "$notifications_up" = true ]; then
+            echo "✅ All services are up and running!"
+            exit 0
+          fi
+          
+          echo "⏳ Services not ready yet, waiting 3 seconds..."
+          sleep 3
+        done
+        
+        echo "❌ Services did not start in time"
+        echo "=== Debug Information ==="
+        echo "Users Service Log:"
+        cat integration-testing/artifacts/users-service.log || echo "No users-service log found"
+        echo "Notifications Service Log:"
+        cat integration-testing/artifacts/notifications-service.log || echo "No notifications-service log found"
+        echo "=== Container Status ==="
+        docker ps -a
+        exit 1 

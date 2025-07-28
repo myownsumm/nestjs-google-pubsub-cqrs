@@ -1,0 +1,96 @@
+name: 'Setup Pub/Sub Emulator'
+description: 'Start and verify Pub/Sub emulator container'
+
+inputs:
+  container-name:
+    description: 'Name for the container'
+    required: false
+    default: 'pubsub-emulator'
+  port:
+    description: 'Host port to map'
+    required: false
+    default: '8085'
+  container-port:
+    description: 'Container port'
+    required: false
+    default: '8090'
+  project-id:
+    description: 'Pub/Sub project ID'
+    required: false
+    default: 'integration-test-project'
+  topic:
+    description: 'Pub/Sub topic name'
+    required: false
+    default: 'integration-events-topic'
+  subscription:
+    description: 'Pub/Sub subscription name'
+    required: false
+    default: 'event-bus-monitoring-sub'
+  image:
+    description: 'Docker image to use'
+    required: false
+    default: 'myownsumm/nestjs-google-pubsub-emulator:latest'
+  max-wait-time:
+    description: 'Maximum wait time in seconds'
+    required: false
+    default: '45'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Start Pub/Sub emulator
+      shell: bash
+      run: |
+        echo "🚀 Starting Pub/Sub emulator..."
+        docker run -d --rm --platform=linux/amd64 -p ${{ inputs.port }}:${{ inputs.container-port }} \
+          -e PUBSUB_PROJECT_ID=${{ inputs.project-id }} \
+          -e PUBSUB_EMULATOR_PORT=${{ inputs.container-port }} \
+          -e PUBSUB_TOPIC=${{ inputs.topic }} \
+          -e PUBSUB_SUBSCRIPTION=${{ inputs.subscription }} \
+          --name ${{ inputs.container-name }} ${{ inputs.image }}
+        
+        echo "⏳ Waiting for container to start..."
+        sleep 3
+
+    - name: Wait for emulator to be ready
+      shell: bash
+      run: |
+        echo "🔍 Waiting for Pub/Sub emulator to be ready..."
+        max_attempts=$(( ${{ inputs.max-wait-time }} / 3 ))
+        
+        for i in $(seq 1 $max_attempts); do
+          echo "Attempt $i/$max_attempts: Checking if emulator is responding..."
+          
+          # Check if container is still running
+          if ! docker ps --filter name=${{ inputs.container-name }} --filter status=running | grep -q ${{ inputs.container-name }}; then
+            echo "❌ Container is not running!"
+            docker ps -a --filter name=${{ inputs.container-name }}
+            docker logs ${{ inputs.container-name }} || echo "No logs available"
+            exit 1
+          fi
+          
+          # Check if port is responding
+          if nc -z localhost ${{ inputs.port }}; then
+            echo "✅ Pub/Sub emulator is up and responding!"
+            exit 0
+          fi
+          
+          echo "⏳ Port not ready yet, waiting 3 seconds..."
+          sleep 3
+        done
+        
+        echo "❌ Pub/Sub emulator did not start in time"
+        docker ps -a --filter name=${{ inputs.container-name }}
+        docker logs ${{ inputs.container-name }} || echo "No logs available"
+        exit 1
+
+    - name: Verify container status
+      shell: bash
+      run: |
+        echo "=== Container Health Check ==="
+        if docker ps | grep -q ${{ inputs.container-name }}; then
+          echo "✅ Emulator container is running and healthy"
+        else
+          echo "❌ Emulator container is not running"
+          exit 1
+        fi 
