@@ -38,10 +38,17 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Cache Docker image
+      uses: ./.github/actions/cache-docker
+      with:
+        image: ${{ inputs.image }}
+
     - name: Start Pub/Sub emulator
       shell: bash
       run: |
         echo "🚀 Starting Pub/Sub emulator..."
+        
+        # Start container (image already cached)
         docker run -d --rm --platform=linux/amd64 -p ${{ inputs.port }}:${{ inputs.container-port }} \
           -e PUBSUB_PROJECT_ID=${{ inputs.project-id }} \
           -e PUBSUB_EMULATOR_PORT=${{ inputs.container-port }} \
