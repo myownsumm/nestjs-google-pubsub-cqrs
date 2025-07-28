@@ -46,7 +46,7 @@ runs:
     - name: Start Pub/Sub emulator
       shell: bash
       run: |
-        echo "🚀 Starting Pub/Sub emulator..."
+        echo "🚀 Starting Pub/Sub emulator........."
         
         # Start container (image already cached)
         docker run -d --rm --platform=linux/amd64 -p ${{ inputs.port }}:${{ inputs.container-port }} \
