@@ -186,24 +186,6 @@ jobs:
           npm ci
           npm run build
 
-      - name: Final emulator health check
-        run: |
-          echo "🏥 Final health check before starting services..."
-          if ! docker ps --filter name=pubsub-emulator --filter status=running | grep -q pubsub-emulator; then
-            echo "❌ Emulator container stopped during builds!"
-            docker ps -a --filter name=pubsub-emulator
-            docker logs pubsub-emulator || echo "No logs available"
-            exit 1
-          fi
-          
-          if ! nc -z localhost 8085; then
-            echo "❌ Emulator port not responding!"
-            docker logs pubsub-emulator
-            exit 1
-          fi
-          
-          echo "✅ Emulator is healthy and ready for service connections"
-
       - name: Start users-service
         run: |
           echo "Starting users-service..."
