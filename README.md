@@ -13,6 +13,7 @@ A powerful Google Pub/Sub integration for NestJS CQRS that enables seamless even
 - **Type-Safe**: Full TypeScript support with proper type definitions
 - **Auto-Discovery**: Automatically discovers and registers event handlers
 - **Flexible Configuration**: Support for both synchronous and asynchronous configuration
+- **E2E testing helpers**: Generic `GlobalBusMessage` observers (waits, sequences, payload paths) and an optional dedicated Pub/Sub listener for out-of-process tests
 
 ## 📦 Installation
 
@@ -483,6 +484,85 @@ interface IConnectionOptions {
   port?: number;
 }
 ```
+
+## E2E testing: observing the global bus
+
+This section is **only for automated end-to-end tests** (Jest, Playwright test runner in Node, etc.). It is **not** part of normal application runtime wiring.
+
+Messages on the wire use **`GlobalBusMessage`**: `{ eventName, eventBody, eventInitiator }`. The helpers below work with any `Observable<GlobalBusMessage>` so you can assert event names, ordered sequences, and nested payload fields (for example UUIDs) without this library knowing your domain types.
+
+### Two building blocks
+
+| Layer | What it is | When to use |
+|-------|------------|-------------|
+| **Helpers** (`waitForMessage`, `waitForEventName`, `waitForMessageSequence`, `collectMessages`, `getByPath`) | Promise/async utilities on an existing message stream | Any test that can obtain an `Observable<GlobalBusMessage>` |
+| **`PubSubGlobalBusListener`** | Opens Pub/Sub (or the emulator) with a **dedicated** `subscriptionName` and exposes `messages$` | App runs **out of process** (typical Playwright + API against `localhost`, or a second service). Use a **unique** subscription per run (for example `e2e-${crypto.randomUUID()}`) so tests do not steal messages from each other. Call **`close()`** when done. |
+
+### Configuration (align with your app)
+
+Use the same **`projectId`**, **`topicName`**, and emulator **`apiEndpoint` / `port`** as `PubSubCqrsModule.forRoot` (or your env-based factory). For `PubSubGlobalBusListener`, **`subscriptionName` must be different** from every running service subscription so the test consumer does not compete with production-style subscribers on the same subscription.
+
+Example environment alignment for local emulator:
+
+```bash
+PUBSUB_PROJECT_ID=integration-test-project
+PUBSUB_TOPIC=integration-events-topic
+# App subscription (example)
+PUBSUB_SUBSCRIPTION=users-service-sub
+# E2E listener: pick a unique name in test code, not necessarily in .env
+```
+
+### In-process (Nest `TestingModule`)
+
+`PubSubService.read$()` is backed by a **multicast** stream: your test can subscribe in parallel with `PubSubCqrsModule` without extra setup.
+
+```typescript
+import { getByPath, PubSubService, waitForEventName } from "nestjs-google-pubsub-cqrs";
+
+const pubSub = app.get(PubSubService);
+const eventPromise = waitForEventName(
+  pubSub.read$(),
+  "UserCreatedEvent",
+  { timeoutMs: 15000 }
+);
+// trigger your handler (HTTP call, command, etc.)
+const msg = await eventPromise;
+const userId = getByPath(msg.eventBody, "payload.userId");
+```
+
+### Separate process / Playwright (Node side only)
+
+Start **`PubSubGlobalBusListener`** in the **Node** process (fixture, `test.beforeAll`, or `globalSetup`), **not** inside `page.evaluate` or other browser code. The Google Pub/Sub client runs only in Node.
+
+```typescript
+import {
+  PubSubGlobalBusListener,
+  waitForMessage,
+} from "nestjs-google-pubsub-cqrs";
+import { randomUUID } from "crypto";
+
+const listener = new PubSubGlobalBusListener();
+await listener.connect({
+  subscriptionName: `e2e-${randomUUID()}`,
+  topicName: process.env.PUBSUB_TOPIC!,
+  projectId: process.env.PUBSUB_PROJECT_ID!,
+  apiEndpoint: "localhost",
+  port: 8085,
+});
+
+const match = waitForMessage(
+  listener.messages$,
+  (m) => m.eventName === "OrderPaidEvent",
+  { timeoutMs: 30000 }
+);
+// drive the app via Playwright / HTTP, then:
+const msg = await match;
+await listener.close();
+```
+
+### API surface (testing)
+
+Exported next to the core module: **`waitForMessage`**, **`waitForEventName`**, **`waitForMessageSequence`**, **`collectMessages`**, **`getByPath`**, **`PubSubGlobalBusListener`**, and option types such as **`WaitForBusMessageOptions`**.
 
 ## 🚨 Troubleshooting
 
