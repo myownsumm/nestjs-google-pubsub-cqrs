@@ -4,8 +4,8 @@ FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine AS builder
 # Install Pub/Sub emulator
 RUN gcloud components install pubsub-emulator
 
-# Production image
-FROM node:18-alpine
+# Production image — node:22+ required by @google-cloud/pubsub@^6
+FROM node:22-alpine
 
 # Metadata for Docker Hub
 LABEL maintainer="Oleksandr Poltoratskyi"
@@ -35,10 +35,10 @@ RUN apk update && apk upgrade && \
 WORKDIR /app
 
 # Copy application files
-COPY server.js ./
+COPY server.js healthcheck.js ./
 
 # Install Node.js dependencies
-RUN npm install @google-cloud/pubsub@^4.0.2 --only=production && \
+RUN npm install @google-cloud/pubsub@^6.0.1 --only=production && \
     npm cache clean --force
 
 # Set default environment variables (same as unov-gcloud)
@@ -57,9 +57,10 @@ USER pubsub
 # Expose emulator port
 EXPOSE 8090
 
-# Health check
+# Health check — protocol-aware: proves a real Pub/Sub RPC is being served,
+# not just that the port is open (see healthcheck.js).
 HEALTHCHECK --interval=10s --start-period=30s --timeout=5s --retries=3 \
-    CMD netstat -tulpen | grep 0.0.0.0:${PUBSUB_EMULATOR_PORT} || exit 1
+    CMD node healthcheck.js || exit 1
 
 # Use tini for proper signal handling
 ENTRYPOINT ["/sbin/tini", "--"]
