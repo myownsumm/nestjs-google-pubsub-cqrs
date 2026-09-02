@@ -4,8 +4,8 @@ FROM gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine AS builder
 # Install Pub/Sub emulator
 RUN gcloud components install pubsub-emulator
 
-# Production image
-FROM node:18-alpine
+# Production image — node:22+ required by @google-cloud/pubsub@^6
+FROM node:22-alpine
 
 # Metadata for Docker Hub
 LABEL maintainer="Oleksandr Poltoratskyi"
@@ -38,7 +38,7 @@ WORKDIR /app
 COPY server.js healthcheck.js ./
 
 # Install Node.js dependencies
-RUN npm install @google-cloud/pubsub@^4.0.2 --only=production && \
+RUN npm install @google-cloud/pubsub@^6.0.1 --only=production && \
     npm cache clean --force
 
 # Set default environment variables (same as unov-gcloud)
