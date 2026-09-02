@@ -482,8 +482,34 @@ interface IConnectionOptions {
   projectId: string;
   apiEndpoint?: string;
   port?: number;
+  /** Max time (ms) to wait for a single RPC before treating it as timed out. Default: 5000 */
+  connectionTimeoutMs?: number;
+  /** Max connection attempts (initial + retries) before giving up. Default: 3 */
+  maxConnectionAttempts?: number;
+  /** Base delay (ms) between attempts, grows linearly. Default: 1000 */
+  retryDelayMs?: number;
 }
 ```
+
+### Bounded, classified connection failures
+
+`PubSubService.connect()` bounds every underlying Pub/Sub RPC (`getTopics`, `getSubscriptions`, subscription creation) to `connectionTimeoutMs` and retries up to `maxConnectionAttempts` times. A backend that accepts a TCP/gRPC connection but never actually serves RPCs — e.g. an emulator whose port is open while its process is still starting — now fails fast with a classified `PubSubConnectionError` instead of silently consuming the underlying gRPC client's own, much longer (~60s) internal deadline.
+
+```typescript
+import { PubSubConnectionError, PubSubConnectionFailureReason } from "nestjs-google-pubsub-cqrs";
+
+try {
+  await pubSubService.connect({ subscriptionName, topicName, projectId, apiEndpoint, port });
+} catch (error) {
+  if (error instanceof PubSubConnectionError) {
+    // error.reason: PubSubConnectionFailureReason.TIMEOUT | RPC_ERROR
+    // error.attempts, error.elapsedMs, error.cause
+  }
+  throw error;
+}
+```
+
+This is orthogonal to, and does not replace, the Docker healthcheck on the emulator image (see `docker-image/healthcheck.js`), which now performs the same kind of real RPC check at the container level so `depends_on: condition: service_healthy` is a truthful readiness signal, not just a port check.
 
 ## E2E testing: observing the global bus
 

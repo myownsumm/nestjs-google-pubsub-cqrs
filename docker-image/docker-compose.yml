@@ -12,8 +12,9 @@ services:
       - PUBSUB_TOPIC=${PUBSUB_TOPIC:-integration-events-topic}
       - PUBSUB_SUBSCRIPTION=${PUBSUB_SUBSCRIPTION:-event-bus-monitoring-sub}
     healthcheck:
-      test: ["CMD", "sh", "-c", "netstat -tulpen | grep 0.0.0.0:${PUBSUB_EMULATOR_PORT:-8090}"]
+      test: ["CMD", "node", "healthcheck.js"]
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     restart: unless-stopped 
